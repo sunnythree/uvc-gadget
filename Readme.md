@@ -64,3 +64,41 @@ and Robert Baldyga's patchset
 ### Initial
 
 - Fork(copy) from [uvc-gadget.git](http://git.ideasonboard.org/uvc-gadget.git)
+
+### change
+for my device, i changed:
+1. in uvc_events_process_data function, add:
+```
+        if(dev->fcc == V4L2_PIX_FMT_YUYV){
+            printf("stream on V4L2_PIX_FMT_YUYV\n");
+        }else{
+            printf("stream on V4L2_PIX_FMT_MJPEG\n");
+        }
+        printf("fcc width height: %d %d %d\n", dev->fcc, dev->width, dev->height);
+        {
+            if(!dev->is_streaming){
+                printf("bulk stream on1\n");
+                ret = uvc_handle_streamon_event(dev);
+                printf("bulk stream on2 %d\n", ret);
+            }else{
+                printf("bulk stream has on\n");
+            }
+
+            if (ret < 0)
+                goto err;
+        }
+```
+because stream on event not triggered, if not add these code.
+
+2. change payload_size = dev->imgsize; => payload_size = dev->width * dev->height * 2;
+```
+        case V4L2_PIX_FMT_MJPEG:
+            // payload_size = dev->imgsize;
+            payload_size = dev->width * dev->height * 2;
+            break;
+        }
+```
+because ret = ioctl(dev->uvc_fd, VIDIOC_QBUF, &buf); fail error with code (22), I do not understand why, 
+but after i change like this, it work well.
+
+I also add a config demo in doc/uvc-gadget-config.sh:
