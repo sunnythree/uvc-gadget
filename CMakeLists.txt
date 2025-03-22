@@ -19,9 +19,9 @@ set(GCC_COMPILER_VERSION "" CACHE STRING "GCC Compiler version")
 set(GNU_MACHINE "arm-linux-gnueabi" CACHE STRING "GNU compiler triple")
 
 # 设置交叉编译器环境
-# SET(CMAKE_FIND_ROOT_PATH /mnt/f/work/github/MNN-master/linaro/arm)
-# SET(CMAKE_C_COMPILER   ${CMAKE_FIND_ROOT_PATH}/bin/arm-linux-gnueabi-gcc)
-# SET(CMAKE_CXX_COMPILER ${CMAKE_FIND_ROOT_PATH}/bin/arm-linux-gnueabi-g++)
+SET(CMAKE_FIND_ROOT_PATH /mnt/f/work/linaro/arm)
+SET(CMAKE_C_COMPILER   ${CMAKE_FIND_ROOT_PATH}/bin/arm-linux-gnueabi-gcc)
+SET(CMAKE_CXX_COMPILER ${CMAKE_FIND_ROOT_PATH}/bin/arm-linux-gnueabi-g++)
 
 SET(CMAKE_C_FLAGS_RELEASE " -O3")
 SET(CMAKE_CXX_FLAGS_RELEASE " -O3")
