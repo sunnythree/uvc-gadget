@@ -116,15 +116,15 @@ struct uvc_format_info {
 };
 
 static const struct uvc_frame_info uvc_frames_yuyv[] = {
+    // {
+    //     640,
+    //     360,
+    //     {666666, 10000000, 50000000, 0},
+    // },
     {
-        640,
-        360,
-        {666666, 10000000, 50000000, 0},
-    },
-    {
-        1280,
-        720,
-        {50000000, 0},
+        1920,
+        1080,
+        {2500000, 5000000, 0},
     },
     {
         0,
@@ -136,15 +136,15 @@ static const struct uvc_frame_info uvc_frames_yuyv[] = {
 };
 
 static const struct uvc_frame_info uvc_frames_mjpeg[] = {
+    // {
+    //     640,
+    //     360,
+    //     {666666, 10000000, 50000000, 0},
+    // },
     {
-        640,
-        360,
-        {666666, 10000000, 50000000, 0},
-    },
-    {
-        1280,
-        720,
-        {50000000, 0},
+        1920,
+        1080,
+        {333333, 666666, 1000000, 2000000, 0},
     },
     {
         0,
@@ -157,7 +157,7 @@ static const struct uvc_frame_info uvc_frames_mjpeg[] = {
 
 static const struct uvc_format_info uvc_formats[] = {
     {V4L2_PIX_FMT_YUYV, uvc_frames_yuyv},
-    {V4L2_PIX_FMT_MJPEG, uvc_frames_mjpeg},
+    // {V4L2_PIX_FMT_MJPEG, uvc_frames_mjpeg},
 };
 
 /* ---------------------------------------------------------------------------
@@ -885,21 +885,25 @@ static void uvc_video_fill_buffer(struct uvc_device *dev, struct v4l2_buffer *bu
 {
     unsigned int bpl;
     unsigned int i;
-
+    printf("uvc_video_fill_buffer\n");
     switch (dev->fcc) {
-    case V4L2_PIX_FMT_YUYV:
-        /* Fill the buffer with video data. */
-        bpl = dev->width * 2;
-        for (i = 0; i < dev->height; ++i)
-            memset(dev->mem[buf->index].start + i * bpl, dev->color++, bpl);
+        case V4L2_PIX_FMT_YUYV:{
+            printf("uvc_video_fill_buffer  V4L2_PIX_FMT_YUYV\n");
+            /* Fill the buffer with video data. */
+            bpl = dev->width * 2;
+            for (i = 0; i < dev->height; ++i)
+                memset(dev->mem[buf->index].start + i * bpl, dev->color++, bpl);
 
-        buf->bytesused = bpl * dev->height;
-        break;
+            buf->bytesused = bpl * dev->height;
+            break;
+        }
 
-    case V4L2_PIX_FMT_MJPEG:
-        memcpy(dev->mem[buf->index].start, dev->imgdata, dev->imgsize);
-        buf->bytesused = dev->imgsize;
-        break;
+        case V4L2_PIX_FMT_MJPEG:{
+            printf("uvc_video_fill_buffer  V4L2_PIX_FMT_MJPEG, dev->imgsize = %d\n", dev->imgsize);
+            memcpy(dev->mem[buf->index].start, dev->imgdata, dev->imgsize);
+            buf->bytesused = dev->imgsize;
+            break;
+        }
     }
 }
 
@@ -917,7 +921,7 @@ static int uvc_video_process(struct uvc_device *dev)
         return 0;
     /* Prepare a v4l2 buffer to be dequeued from UVC domain. */
     CLEAR(ubuf);
-
+    printf("uvc_video_process 000\n");
     ubuf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
     switch (dev->io) {
     case IO_METHOD_MMAP:
@@ -930,6 +934,7 @@ static int uvc_video_process(struct uvc_device *dev)
         break;
     }
     if (dev->run_standalone) {
+        printf("uvc_video_process 111\n");
         /* UVC stanalone setup. */
         ret = ioctl(dev->uvc_fd, VIDIOC_DQBUF, &ubuf);
         if (ret < 0)
@@ -1068,10 +1073,11 @@ static int uvc_video_qbuf_userptr(struct uvc_device *dev)
             buf.m.userptr = (unsigned long)dev->dummy_buf[i].start;
             buf.length = dev->dummy_buf[i].length;
             buf.index = i;
-
+            printf("UVC qbuf %d, length %d, ptr 0x%x\n", i, buf.length, buf.m.userptr);
             ret = ioctl(dev->uvc_fd, VIDIOC_QBUF, &buf);
             if (ret < 0) {
                 printf("UVC: VIDIOC_QBUF failed : %s (%d).\n", strerror(errno), errno);
+                printf("UVC: VIDIOC_QBUF failed : %s (%d). buf.length = %d ret %d\n", strerror(errno), errno, buf.length, ret);
                 return ret;
             }
 
@@ -1209,7 +1215,7 @@ static int uvc_video_reqbufs_userptr(struct uvc_device *dev, int nbufs)
 
     dev->nbufs = rb.count;
     printf("UVC: %u buffers allocated.\n", rb.count);
-
+    
     if (dev->run_standalone) {
         /* Allocate buffers to hold dummy data pattern. */
         dev->dummy_buf = calloc(rb.count, sizeof dev->dummy_buf[0]);
@@ -1225,10 +1231,12 @@ static int uvc_video_reqbufs_userptr(struct uvc_device *dev, int nbufs)
             payload_size = dev->width * dev->height * 2;
             break;
         case V4L2_PIX_FMT_MJPEG:
-            payload_size = dev->imgsize;
+            // payload_size = dev->imgsize;
+            payload_size = dev->width * dev->height * 2;
             break;
         }
 
+        printf("fcc %d w %d h %d payload_size %d, rb.count %d\n", dev->fcc, dev->width, dev->height, payload_size, rb.count);
         for (i = 0; i < rb.count; ++i) {
             dev->dummy_buf[i].length = payload_size;
             dev->dummy_buf[i].start = malloc(payload_size);
@@ -1315,6 +1323,7 @@ static int uvc_handle_streamon_event(struct uvc_device *dev)
             goto err;
 
         dev->vdev->is_streaming = 1;
+        printf("uvc_handle_streamon_event dev->vdev->is_streaming= %d\n", dev->vdev->is_streaming);
     }
 
     /* Common setup. */
@@ -1873,6 +1882,24 @@ static int uvc_events_process_data(struct uvc_device *dev, struct uvc_request_da
         dev->fcc = format->fcc;
         dev->width = frame->width;
         dev->height = frame->height;
+        if(dev->fcc == V4L2_PIX_FMT_YUYV){
+            printf("stream on V4L2_PIX_FMT_YUYV\n");
+        }else{
+            printf("stream on V4L2_PIX_FMT_MJPEG\n");
+        }
+        printf("fcc width height: %d %d %d\n", dev->fcc, dev->width, dev->height);
+        {
+            if(!dev->is_streaming){
+                printf("bulk stream on1\n");
+                ret = uvc_handle_streamon_event(dev);
+                printf("bulk stream on2 %d\n", ret);
+            }else{
+                printf("bulk stream has on\n");
+            }
+
+            if (ret < 0)
+                goto err;
+        }
     }
 
     return 0;
@@ -1991,8 +2018,11 @@ static void image_load(struct uvc_device *dev, const char *img)
 {
     int fd = -1;
 
-    if (img == NULL)
+    if (img == NULL){
+        printf("image_load img == NULL return\n");
         return;
+    }
+        
 
     fd = open(img, O_RDONLY);
     if (fd == -1) {
@@ -2010,6 +2040,7 @@ static void image_load(struct uvc_device *dev, const char *img)
     }
 
     read(fd, dev->imgdata, dev->imgsize);
+    printf("image_load img size = %d\n", dev->imgsize);
     close(fd);
 }
 
@@ -2169,6 +2200,8 @@ int main(int argc, char *argv[])
         }
     }
 
+    printf("default_format %d , uvc_devname %s, bulk_mode %d \n", default_format, uvc_devname, bulk_mode);
+
     if (!dummy_data_gen_mode && !mjpeg_image) {
         /*
          * Try to set the default format at the V4L2 video capture
@@ -2178,6 +2211,7 @@ int main(int argc, char *argv[])
         fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         fmt.fmt.pix.width = (default_resolution == 0) ? 640 : 1280;
         fmt.fmt.pix.height = (default_resolution == 0) ? 360 : 720;
+        
         fmt.fmt.pix.sizeimage = (default_format == 0) ? (fmt.fmt.pix.width * fmt.fmt.pix.height * 2)
                                                       : (fmt.fmt.pix.width * fmt.fmt.pix.height * 1.5);
         fmt.fmt.pix.pixelformat = (default_format == 0) ? V4L2_PIX_FMT_YUYV : V4L2_PIX_FMT_MJPEG;
@@ -2214,6 +2248,11 @@ int main(int argc, char *argv[])
     udev->mult = mult;
     udev->burst = burst;
     udev->speed = speed;
+    if(udev->fcc == V4L2_PIX_FMT_YUYV){
+        printf("V4L2_PIX_FMT_YUYV\n");
+    }else{
+        printf("V4L2_PIX_FMT_MJPEG\n");
+    }
 
     if (dummy_data_gen_mode || mjpeg_image)
         /* UVC standalone setup. */
